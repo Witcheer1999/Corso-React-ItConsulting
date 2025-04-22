@@ -1212,6 +1212,110 @@ export default function TaskItem({ name, isDone, onToggle }) {
 }
 ```
 
+
+
+
+---
+
+## **Le `key` in React: concetti fondamentali**
+
+In React, la proprietà `key` è un identificatore **univoco e stabile** assegnato agli elementi di una lista per aiutare React a gestire in modo efficiente il processo di **reconciliation**, ovvero l’aggiornamento del Virtual DOM rispetto al DOM reale.
+
+React non rende visibile `key` come una prop normale: essa viene usata internamente per confrontare le versioni precedenti e successive della lista durante il rendering, al fine di determinare quali elementi sono stati aggiunti, rimossi o modificati.
+
+---
+
+## **Perché `key` è necessaria**
+
+Durante il rendering di una lista dinamica con `Array.map()`, ogni elemento viene trasformato in un componente o nodo JSX. In questo processo, React ha bisogno di una `key` per:
+
+1. **Individuare elementi stabili**: permette a React di capire quali elementi sono identici da un render all’altro.
+2. **Evitare ri-render inutili**: se una `key` non cambia, React può riutilizzare il nodo DOM precedente anziché distruggerlo e ricrearlo.
+3. **Evitare bug legati allo stato locale**: quando le `key` non sono univoche, React può "confondere" gli elementi, applicando stato o effetti a componenti sbagliati.
+
+---
+
+## **Come React usa le `key`**
+
+Durante l’aggiornamento del Virtual DOM, React:
+
+1. Scorre la vecchia lista di elementi (render precedente).
+2. Scorre la nuova lista di elementi (render attuale).
+3. Confronta le `key` di ciascun elemento.
+4. Determina:
+   - quali elementi **rimangono** (stessa key),
+   - quali sono **nuovi** (nuova key),
+   - quali vanno **rimossi** (key non più presenti).
+
+Questo confronto è molto efficiente se le `key` sono **univoche e stabili nel tempo**.
+
+---
+
+## **Best practice per l'uso delle `key`**
+
+### 1. **Usare identificatori univoci**
+
+Utilizzare un identificatore univoco proveniente dai dati (ad esempio un ID del database) è la scelta più corretta.
+
+```jsx
+{items.map(item => (
+  <ListItem key={item.id} data={item} />
+))}
+```
+
+### 2. **Evitare di usare l'indice dell’array come `key`**
+
+Usare l’indice (`index`) dell’array come `key` è **sconsigliato**, specialmente se:
+
+- L’ordine degli elementi può cambiare.
+- Gli elementi possono essere aggiunti o rimossi.
+
+Questo perché l’indice può cambiare tra un render e l’altro, portando React ad associare un contenuto a un elemento sbagliato.
+
+```jsx
+//  Sconsigliato
+{items.map((item, index) => (
+  <ListItem key={index} data={item} />
+))}
+```
+
+### 3. **La `key` non è disponibile nel componente figlio**
+
+La `key` è una **prop riservata a React**, non viene passata al componente figlio e non può essere acceduta tramite `props`.
+
+Se hai bisogno del valore della chiave (ad esempio un ID) nel componente figlio, devi passarlo **esplicitamente** come una prop aggiuntiva:
+
+```jsx
+<TaskItem key={task.id} id={task.id} ... />
+```
+
+### 4. **La `key` deve essere unica nel contesto della lista**
+
+È sufficiente che la `key` sia univoca **all’interno della lista in cui viene usata**. Non serve che sia univoca in tutto il DOM.
+
+---
+
+## **Casi particolari e implicazioni**
+
+### 1. **Liste con animazioni o transizioni**
+
+Le `key` diventano ancora più critiche quando si lavora con liste animate (es. `react-transition-group`). In questi casi, l’associazione corretta dei nodi influisce direttamente sull’esperienza utente e sul comportamento visivo.
+
+### 2. **Componenti complessi con stato locale**
+
+Se ogni elemento della lista ha uno stato interno (`useState`, `useEffect`, ecc.), l’uso corretto delle `key` impedisce che React "scambi" uno stato con un altro tra gli elementi della lista.
+
+---
+
+## **Conclusione**
+
+L’uso corretto delle `key` è essenziale per ottenere prestazioni ottimali e comportamenti prevedibili in React, soprattutto quando si lavora con liste dinamiche. Assegnare `key` univoche e stabili permette a React di eseguire confronti intelligenti tra versioni del Virtual DOM, evitando ri-render inutili e bug logici.
+
+
+
+
+
+
 ---
 
 ## File: `App.css`
@@ -1302,6 +1406,126 @@ ul {
 
 
 
+
+
+
+
+
+
+
+
+
+## 🔍 Obiettivo: Comunicazione tra componenti
+
+In un'applicazione React ben strutturata, i componenti genitori **gestiscono lo stato** e i componenti figli **ricevono i dati e le funzioni** attraverso le props. Questo approccio segue il principio del **data flow unidirezionale**: i dati fluiscono dall'alto verso il basso (*top-down*), mentre le interazioni risalgono tramite funzioni passate come props.
+
+---
+
+##  Teoria e best practice applicate nel codice
+
+### 1. **Il componente principale (`App`) gestisce lo stato**
+
+```jsx
+const [tasks, setTasks] = useState([...]);
+```
+
+**Motivazione teorica**:  
+React promuove una logica in cui **il componente che possiede i dati è responsabile anche della loro modifica**. In questo caso, `App` è il "single source of truth" per l’elenco delle attività. Nessun componente figlio ha il controllo diretto su `tasks`.
+
+---
+
+### 2. **Le funzioni di modifica sono dichiarate nel componente genitore**
+
+```jsx
+function toggleDone(id) {
+  const updatedTasks = tasks.map((task) =>
+    task.id === id ? { ...task, isDone: !task.isDone } : task
+  );
+  setTasks(updatedTasks);
+}
+```
+
+**Motivazione teorica**:  
+Gestendo la logica di modifica nello stesso componente che controlla lo stato, si garantisce **consistenza, riusabilità** e separazione tra **logica** e **presentazione**. I componenti figli (come `TaskItem`) sono **dumb components**: non contengono logica, ma si limitano a mostrare i dati e notificare eventi.
+
+---
+
+### 3. **Le funzioni vengono passate come props ai componenti figli**
+
+```jsx
+<TaskItem
+  key={task.id}
+  name={task.name}
+  isDone={task.isDone}
+  onToggle={() => onToggleDone(task.id)}
+/>
+```
+
+**Best practice**:  
+- Non passare `task` interi se non necessario (meglio passare solo ciò che serve).
+- Usare una funzione **wrapper** (`() => onToggleDone(task.id)`) per **"forzare" un parametro** senza eseguire subito la funzione.
+
+**Alternativa da evitare**:
+
+```jsx
+<TaskItem onToggle={onToggleDone(task.id)} /> //  Esecuzione immediata
+```
+
+---
+
+### 4. **Il componente `TaskItem` riceve solo le props necessarie**
+
+```jsx
+function TaskItem({ name, isDone, onToggle })
+```
+
+**Best practice**:
+- Le props devono essere **esplicite e minimali**, così il componente è più leggibile, riutilizzabile e facilmente testabile.
+- Non serve passare oggetti complessi (es. l’intero `task`) se bastano `name`, `isDone` e `onToggle`.
+
+---
+
+### 5. **Le funzioni ricevute come props sono usate come handler**
+
+```jsx
+<button onClick={onToggle}>
+```
+
+**Motivazione teorica**:
+- Le funzioni passate come props sono **callback controllate dal genitore**.
+- Quando l'utente interagisce (clicca), il figlio invoca la funzione, ma **non conosce né gestisce lo stato**, delegando completamente al padre.
+
+---
+
+##  Cosa **non** fare (errori comuni)
+
+| Errore | Descrizione | Soluzione |
+|--------|-------------|-----------|
+| **Modificare lo stato nel figlio** | Violazione dell’isolamento e perdita di controllo | Gestire tutto nel genitore |
+| **Passare oggetti interi inutilmente** | Aumenta accoppiamento e uso di memoria | Passare solo le props strettamente necessarie |
+| **Invocare subito le funzioni (`onToggle={func()}`)** | Causa chiamate non desiderate al primo render | Usare arrow function per ritardare l’esecuzione |
+| **Prop drilling eccessivo** | Far passare funzioni o dati attraverso troppi livelli | Valutare Context API per dati globali |
+| **Rinomina incoerente delle props** | Diminuisce la leggibilità | Usare nomi chiari e coerenti (`onToggleDone`, `handleChange`, `onSubmit`, ecc.) |
+
+---
+
+##  Perché questa architettura è corretta
+
+- **Separa le responsabilità**: `App` gestisce i dati, `TaskList` struttura la lista, `TaskItem` mostra l’attività.
+- **Rende il codice riutilizzabile**: `TaskItem` può essere usato ovunque senza dipendere da uno specifico `App`.
+- **Rispetta il flusso dati unidirezionale**: da `App` → `TaskList` → `TaskItem`, e da `TaskItem` → callback → `App`.
+- **Facilita il testing**: ogni funzione è isolata e prevedibile.
+
+---
+
+## Conclusione
+
+La struttura adottata nell' esempio segue pienamente le **best practice React** moderne:
+
+- Stato centralizzato
+- Componenti a responsabilità singola
+- Comunicazione tramite props e funzioni
+- Codice leggibile, testabile, scalabile
 
 
 
